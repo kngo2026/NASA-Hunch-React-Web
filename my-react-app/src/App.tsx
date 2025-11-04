@@ -1,3 +1,5 @@
+// Main page, kind of like html
+
 import React from "react";
 import {
   Box,
@@ -9,10 +11,9 @@ import {
   Flex,
   Spacer,
 } from "@chakra-ui/react";
-import { useColorMode, useColorModeValue } from "@chakra-ui/color-mode";
+import { useColorModeValue } from "@chakra-ui/color-mode";
 
 const App: React.FC = () => {
-  const { toggleColorMode } = useColorMode();
   const bg = useColorModeValue("gray.50", "gray.900");
   const textColor = useColorModeValue("gray.800", "white");
 
@@ -23,9 +24,6 @@ const App: React.FC = () => {
           NASA Hunch Project
         </Heading>
         <Spacer />
-        <Button colorScheme="blue" onClick={toggleColorMode}>
-          Toggle Theme
-        </Button>
       </Flex>
 
       <VStack gap={6} textAlign="center" mt={10}>
