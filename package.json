@@ -3,6 +3,26 @@
     "@chakra-ui/react": "^3.28.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "framer-motion": "^12.23.24"
-  }
+    "framer-motion": "^12.23.24",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "name": "nasa-hunch-react-web",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kngo2026/NASA-Hunch-React-Web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kngo2026/NASA-Hunch-React-Web/issues"
+  },
+  "homepage": "https://github.com/kngo2026/NASA-Hunch-React-Web#readme"
 }
