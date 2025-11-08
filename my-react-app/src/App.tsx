@@ -1,25 +1,71 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, User, Pill, Lock, Unlock, Clock, AlertCircle, CheckCircle, XCircle, Plus, Minus, Package, TrendingUp, AlertTriangle } from 'lucide-react';
+import {
+  Box,
+  Button,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Flex,
+  Spacer,
+  Badge,
+  Grid,
+  Input,
+} from "@chakra-ui/react";
 
-const NASAMedicalSystem = () => {
+interface Medication {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  dailyLimit: number;
+  takenToday: number;
+  instructions: string;
+}
+
+interface Astronaut {
+  id: string;
+  name: string;
+  role: string;
+  lastAccess: string;
+  medications: Medication[];
+}
+
+interface InventoryData {
+  current: number;
+  predicted: number;
+  usage: number;
+  expiry: string;
+}
+
+interface Transaction {
+  id: number;
+  astronaut: string;
+  astronautId: string;
+  medications: Array<{ name: string; dosage: string; quantity: number }>;
+  timestamp: string;
+  status: string;
+}
+
+const App: React.FC = () => {
   // Navigation state
-  const [currentView, setCurrentView] = useState('home'); // home, dispense, inventory, admin
+  const [currentView, setCurrentView] = useState<'home' | 'dispense' | 'inventory' | 'unlocked'>('home');
   
   // Camera & Recognition
   const [cameraActive, setCameraActive] = useState(false);
-  const [recognizedAstronaut, setRecognizedAstronaut] = useState(null);
+  const [recognizedAstronaut, setRecognizedAstronaut] = useState<Astronaut | null>(null);
   const [isRecognizing, setIsRecognizing] = useState(false);
   
   // Lock state
-  const [lockStatus, setLockStatus] = useState('locked'); // locked, unlocked, error
+  const [lockStatus, setLockStatus] = useState<'locked' | 'unlocked' | 'error'>('locked');
   const [unlockCountdown, setUnlockCountdown] = useState(0);
   
   // Medication selection
-  const [selectedMedications, setSelectedMedications] = useState({});
+  const [selectedMedications, setSelectedMedications] = useState<Record<string, number>>({});
   const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Inventory
-  const [inventory, setInventory] = useState({
+  const [inventory, setInventory] = useState<Record<string, InventoryData>>({
     'ibuprofen': { current: 245, predicted: 180, usage: 12, expiry: '2026-03-15' },
     'antihistamine': { current: 30, predicted: 90, usage: 8, expiry: '2025-12-20' },
     'melatonin': { current: 15, predicted: 45, usage: 5, expiry: '2026-01-10' },
@@ -28,14 +74,13 @@ const NASAMedicalSystem = () => {
   });
   
   // Transaction history
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Mock astronaut database
-  const astronautDatabase = {
+  const astronautDatabase: Record<string, Astronaut> = {
     'astronaut_1': {
       id: 'astronaut_1',
       name: 'Commander Sarah Chen',
@@ -99,61 +144,17 @@ const NASAMedicalSystem = () => {
     }
   };
 
-  // ESP32 Lock Integration
-  const ESP32_IP = 'http://192.168.1.50'; // Configure this to your ESP32 IP
-
-  const checkLockStatus = async () => {
-    try {
-      const response = await fetch(`${ESP32_IP}/status`);
-      const data = await response.json();
-      setLockStatus(data.lock);
-    } catch (error) {
-      console.error('Lock status check failed:', error);
-    }
-  };
-
-  const unlockCabinet = async () => {
-    try {
-      const response = await fetch(`${ESP32_IP}/unlock`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: 'valid_session_token', // In production, use real JWT
-          astronaut_id: recognizedAstronaut.id,
-          medications: selectedMedications,
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        setLockStatus('unlocked');
-        setUnlockCountdown(30);
-        
-        // Log transaction
-        logTransaction();
-        
-        // Update inventory
-        updateInventory();
-        
-        return true;
-      }
-    } catch (error) {
-      console.error('Unlock failed:', error);
-      setLockStatus('error');
-      alert('Lock system error. Contact medical officer or use emergency override.');
-    }
-    return false;
-  };
-
   const logTransaction = () => {
-    const transaction = {
+    if (!recognizedAstronaut) return;
+    
+    const transaction: Transaction = {
       id: Date.now(),
       astronaut: recognizedAstronaut.name,
       astronautId: recognizedAstronaut.id,
       medications: Object.entries(selectedMedications)
         .filter(([_, qty]) => qty > 0)
         .map(([medId, qty]) => {
-          const med = recognizedAstronaut.medications.find(m => m.id === medId);
+          const med = recognizedAstronaut.medications.find(m => m.id === medId)!;
           return { name: med.name, dosage: med.dosage, quantity: qty };
         }),
       timestamp: new Date().toISOString(),
@@ -171,6 +172,14 @@ const NASAMedicalSystem = () => {
       }
     });
     setInventory(updated);
+  };
+
+  const unlockCabinet = async () => {
+    setLockStatus('unlocked');
+    setUnlockCountdown(30);
+    logTransaction();
+    updateInventory();
+    return true;
   };
 
   // Countdown timer
@@ -212,14 +221,12 @@ const NASAMedicalSystem = () => {
   const recognizeFace = async () => {
     setIsRecognizing(true);
     
-    // Simulate recognition
     setTimeout(() => {
       const astronautIds = Object.keys(astronautDatabase);
       const randomId = astronautIds[Math.floor(Math.random() * astronautIds.length)];
       setRecognizedAstronaut(astronautDatabase[randomId]);
       
-      // Initialize selection
-      const initSelection = {};
+      const initSelection: Record<string, number> = {};
       astronautDatabase[randomId].medications.forEach(med => {
         initSelection[med.id] = 0;
       });
@@ -230,8 +237,11 @@ const NASAMedicalSystem = () => {
     }, 1500);
   };
 
-  const updateMedicationQty = (medId, delta) => {
+  const updateMedicationQty = (medId: string, delta: number) => {
+    if (!recognizedAstronaut) return;
     const med = recognizedAstronaut.medications.find(m => m.id === medId);
+    if (!med) return;
+    
     const currentQty = selectedMedications[medId] || 0;
     const newQty = Math.max(0, Math.min(currentQty + delta, med.dailyLimit - med.takenToday));
     
@@ -267,10 +277,9 @@ const NASAMedicalSystem = () => {
     setCurrentView('home');
   };
 
-  // Calculate resupply needs
   const calculateResupply = () => {
     const daysUntilResupply = 180;
-    const results = {};
+    const results: Record<string, any> = {};
     
     Object.entries(inventory).forEach(([medId, data]) => {
       const weeklyUsage = data.usage;
@@ -289,105 +298,102 @@ const NASAMedicalSystem = () => {
     return results;
   };
 
-  // Views
   const renderHome = () => (
-    <div className="space-y-6">
-      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 text-center">
-        <Lock className="w-20 h-20 text-blue-300 mx-auto mb-4" />
-        <h2 className="text-3xl font-bold text-white mb-2">Medical Supply Cabinet</h2>
-        <p className="text-blue-200 mb-6">Secure access via facial recognition</p>
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={() => { setCurrentView('dispense'); startCamera(); }}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-xl transition-all transform hover:scale-105 flex items-center gap-2"
-          >
-            <User className="w-6 h-6" />
-            Access Medications
-          </button>
-          <button
-            onClick={() => setCurrentView('inventory')}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-xl transition-all transform hover:scale-105 flex items-center gap-2"
-          >
-            <Package className="w-6 h-6" />
-            View Inventory
-          </button>
-        </div>
-      </div>
+    <VStack gap={6}>
+      <Box bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+        <Box textAlign="center" py={8} px={6}>
+          <Text fontSize="6xl" mb={4}>🔒</Text>
+          <Heading size="xl" color="white" mb={2}>Medical Supply Cabinet</Heading>
+          <Text color="gray.400" mb={6}>
+            Secure access via facial recognition
+          </Text>
+          <HStack gap={4} justify="center">
+            <Button
+              onClick={() => { setCurrentView('dispense'); startCamera(); }}
+              colorScheme="blue"
+              size="lg"
+            >
+              👤 Access Medications
+            </Button>
+            <Button
+              onClick={() => setCurrentView('inventory')}
+              colorScheme="green"
+              size="lg"
+            >
+              📦 View Inventory
+            </Button>
+          </HStack>
+        </Box>
+      </Box>
 
-      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Clock className="w-6 h-6" />
-          Recent Activity
-        </h3>
-        {transactions.length === 0 ? (
-          <p className="text-blue-200">No recent transactions</p>
-        ) : (
-          <div className="space-y-2">
-            {transactions.slice(0, 5).map(tx => (
-              <div key={tx.id} className="bg-white/5 p-3 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-white font-semibold">{tx.astronaut}</p>
-                    <p className="text-blue-200 text-sm">
-                      {tx.medications.map(m => `${m.name} (${m.quantity})`).join(', ')}
-                    </p>
-                  </div>
-                  <p className="text-blue-300 text-sm">
-                    {new Date(tx.timestamp).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+      <Box bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+        <Box p={6}>
+          <Heading size="md" color="white" mb={4}>🕐 Recent Activity</Heading>
+          {transactions.length === 0 ? (
+            <Text color="gray.400">No recent transactions</Text>
+          ) : (
+            <VStack gap={2} align="stretch">
+              {transactions.slice(0, 5).map(tx => (
+                <Box key={tx.id} bg="gray.700" p={3} borderRadius="md">
+                  <Flex justify="space-between">
+                    <Box>
+                      <Text color="white" fontWeight="semibold">{tx.astronaut}</Text>
+                      <Text color="gray.400" fontSize="sm">
+                        {tx.medications.map(m => `${m.name} (${m.quantity})`).join(', ')}
+                      </Text>
+                    </Box>
+                    <Text color="gray.400" fontSize="sm">
+                      {new Date(tx.timestamp).toLocaleTimeString()}
+                    </Text>
+                  </Flex>
+                </Box>
+              ))}
+            </VStack>
+          )}
+        </Box>
+      </Box>
+    </VStack>
   );
 
   const renderDispense = () => {
     if (!recognizedAstronaut) {
       return (
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          {!cameraActive ? (
-            <div className="text-center py-20">
-              <Camera className="w-20 h-20 text-blue-300 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">Facial Recognition</h2>
-              <p className="text-blue-200 mb-6">Position your face in the camera view</p>
-            </div>
-          ) : (
-            <div>
-              <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-xl mb-4" />
-              <canvas ref={canvasRef} className="hidden" />
-              
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={recognizeFace}
-                  disabled={isRecognizing}
-                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center gap-2"
-                >
-                  {isRecognizing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Recognizing...
-                    </>
-                  ) : (
-                    <>
-                      <User className="w-5 h-5" />
-                      Recognize Face
-                    </>
-                  )}
-                </button>
+        <Box bg="gray.800" borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            {!cameraActive ? (
+              <Box textAlign="center" py={20}>
+                <Text fontSize="6xl" mb={4}>📷</Text>
+                <Heading size="lg" color="white" mb={2}>Facial Recognition</Heading>
+                <Text color="gray.400" mb={6}>
+                  Position your face in the camera view
+                </Text>
+              </Box>
+            ) : (
+              <Box>
+                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', borderRadius: '12px', marginBottom: '16px' }} />
                 
-                <button
-                  onClick={handleCancel}
-                  className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+                <HStack gap={3} justify="center">
+                  <Button
+                    onClick={recognizeFace}
+                    disabled={isRecognizing}
+                    colorScheme="green"
+                    size="lg"
+                  >
+                    {isRecognizing ? '⏳ Recognizing...' : '👤 Recognize Face'}
+                  </Button>
+                  
+                  <Button
+                    onClick={handleCancel}
+                    colorScheme="red"
+                    size="lg"
+                  >
+                    Cancel
+                  </Button>
+                </HStack>
+              </Box>
+            )}
+          </Box>
+        </Box>
       );
     }
 
@@ -395,174 +401,181 @@ const NASAMedicalSystem = () => {
       const selectedItems = Object.entries(selectedMedications)
         .filter(([_, qty]) => qty > 0)
         .map(([medId, qty]) => {
-          const med = recognizedAstronaut.medications.find(m => m.id === medId);
+          const med = recognizedAstronaut.medications.find(m => m.id === medId)!;
           return { ...med, quantity: qty };
         });
 
       return (
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-            <AlertCircle className="w-8 h-8 text-yellow-400" />
-            Confirm Medication Dispense
-          </h2>
-          
-          <div className="bg-blue-500/20 p-4 rounded-xl mb-6">
-            <p className="text-white font-semibold mb-2">{recognizedAstronaut.name}</p>
-            <div className="space-y-2">
-              {selectedItems.map(item => (
-                <div key={item.id} className="flex justify-between text-blue-200">
-                  <span>{item.name} ({item.dosage})</span>
-                  <span className="font-bold text-white">× {item.quantity}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <Box bg="gray.800" borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            <Heading size="lg" color="white" mb={4}>⚠️ Confirm Medication Dispense</Heading>
+            
+            <Box bg="blue.900" p={4} borderRadius="md" mb={6}>
+              <Text color="white" fontWeight="semibold" mb={2}>{recognizedAstronaut.name}</Text>
+              <VStack gap={2} align="stretch">
+                {selectedItems.map(item => (
+                  <Flex key={item.id} justify="space-between" color="white">
+                    <Text>{item.name} ({item.dosage})</Text>
+                    <Text fontWeight="bold">× {item.quantity}</Text>
+                  </Flex>
+                ))}
+              </VStack>
+            </Box>
 
-          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 mb-6">
-            <p className="text-yellow-200 text-sm">
-              ⚠️ After confirmation, the cabinet will unlock for 30 seconds. Please retrieve your medications promptly.
-            </p>
-          </div>
+            <Box bg="yellow.900" border="2px solid" borderColor="yellow.500" borderRadius="md" p={4} mb={6}>
+              <Text color="white" fontSize="sm">
+                ⚠️ After confirmation, the cabinet will unlock for 30 seconds. Please retrieve your medications promptly.
+              </Text>
+            </Box>
 
-          <div className="flex gap-3">
-            <button
-              onClick={handleFinalDispense}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Unlock className="w-6 h-6" />
-              Confirm & Unlock Cabinet
-            </button>
-            <button
-              onClick={() => setShowConfirmation(false)}
-              className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 rounded-xl transition-all"
-            >
-              Back
-            </button>
-          </div>
-        </div>
+            <HStack gap={3}>
+              <Button
+                onClick={handleFinalDispense}
+                flex={1}
+                colorScheme="green"
+                size="lg"
+              >
+                🔓 Confirm & Unlock Cabinet
+              </Button>
+              <Button
+                onClick={() => setShowConfirmation(false)}
+                flex={1}
+                colorScheme="gray"
+                size="lg"
+              >
+                Back
+              </Button>
+            </HStack>
+          </Box>
+        </Box>
       );
     }
 
     return (
-      <div className="space-y-6">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-green-500 p-3 rounded-full">
-              <CheckCircle className="w-8 h-8 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold text-white">{recognizedAstronaut.name}</h3>
-              <p className="text-blue-200">{recognizedAstronaut.role}</p>
-            </div>
-            <button
-              onClick={handleCancel}
-              className="text-red-400 hover:text-red-300"
+      <VStack gap={6}>
+        <Box bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            <Flex align="center" gap={4}>
+              <Box bg="green.500" p={3} borderRadius="full">
+                <Text fontSize="2xl">✓</Text>
+              </Box>
+              <Box flex={1}>
+                <Heading size="lg" color="white">{recognizedAstronaut.name}</Heading>
+                <Text color="gray.400">{recognizedAstronaut.role}</Text>
+              </Box>
+              <Button onClick={handleCancel} colorScheme="red" variant="ghost">
+                ✕
+              </Button>
+            </Flex>
+          </Box>
+        </Box>
+
+        <Box bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            <Heading size="md" color="white" mb={4}>💊 Select Medications</Heading>
+            
+            <VStack gap={4} mb={6}>
+              {recognizedAstronaut.medications.map((med) => {
+                const qty = selectedMedications[med.id] || 0;
+                const remaining = med.dailyLimit - med.takenToday;
+                const stockAvailable = inventory[med.id]?.current || 0;
+                
+                return (
+                  <Box key={med.id} bg="gray.700" border="1px solid" borderColor="gray.600" borderRadius="md" p={4} w="100%">
+                    <Flex justify="space-between" mb={3}>
+                      <Box flex={1}>
+                        <Heading size="sm" color="white">{med.name}</Heading>
+                        <Text color="gray.400" fontSize="sm">Dosage: {med.dosage}</Text>
+                        <Text color="gray.400" fontSize="sm">Frequency: {med.frequency}</Text>
+                        <Text color="gray.400" fontSize="xs" mt={1}>{med.instructions}</Text>
+                      </Box>
+                      <Box textAlign="right">
+                        <Text fontSize="sm" color="gray.400">Stock: {stockAvailable}</Text>
+                        <Text fontSize="sm" color="gray.400">Taken today: {med.takenToday}/{med.dailyLimit}</Text>
+                        <Text fontSize="sm" color="green.500">Available: {remaining}</Text>
+                      </Box>
+                    </Flex>
+                    
+                    {remaining > 0 ? (
+                      <Flex align="center" gap={4} bg="blue.900" p={3} borderRadius="md">
+                        <Button
+                          onClick={() => updateMedicationQty(med.id, -1)}
+                          disabled={qty === 0}
+                          colorScheme="red"
+                          size="sm"
+                        >
+                          −
+                        </Button>
+                        
+                        <Box flex={1} textAlign="center">
+                          <Text fontSize="3xl" fontWeight="bold" color="white">{qty}</Text>
+                          <Text color="gray.400" fontSize="sm">Selected</Text>
+                        </Box>
+                        
+                        <Button
+                          onClick={() => updateMedicationQty(med.id, 1)}
+                          disabled={qty >= remaining}
+                          colorScheme="green"
+                          size="sm"
+                        >
+                          +
+                        </Button>
+                      </Flex>
+                    ) : (
+                      <Box bg="yellow.900" border="2px solid" borderColor="yellow.500" borderRadius="md" p={3} textAlign="center">
+                        <Text color="white" fontSize="sm">Daily limit reached</Text>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </VStack>
+
+            <Button
+              onClick={handleConfirmDispense}
+              disabled={Object.values(selectedMedications).reduce((sum, qty) => sum + qty, 0) === 0}
+              w="100%"
+              colorScheme="blue"
+              size="lg"
             >
-              <XCircle className="w-8 h-8" />
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Pill className="w-6 h-6" />
-            Select Medications
-          </h3>
-          
-          <div className="space-y-4 mb-6">
-            {recognizedAstronaut.medications.map((med) => {
-              const qty = selectedMedications[med.id] || 0;
-              const remaining = med.dailyLimit - med.takenToday;
-              const stockAvailable = inventory[med.id]?.current || 0;
-              
-              return (
-                <div key={med.id} className="bg-white/5 border border-white/20 rounded-xl p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold text-white">{med.name}</h4>
-                      <p className="text-blue-200 text-sm">Dosage: {med.dosage}</p>
-                      <p className="text-blue-200 text-sm">Frequency: {med.frequency}</p>
-                      <p className="text-blue-300 text-xs mt-1">{med.instructions}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-blue-300">Stock: {stockAvailable}</p>
-                      <p className="text-sm text-blue-300">Taken today: {med.takenToday}/{med.dailyLimit}</p>
-                      <p className="text-sm text-green-300">Available: {remaining}</p>
-                    </div>
-                  </div>
-                  
-                  {remaining > 0 ? (
-                    <div className="flex items-center gap-4 bg-blue-500/20 p-3 rounded-lg">
-                      <button
-                        onClick={() => updateMedicationQty(med.id, -1)}
-                        disabled={qty === 0}
-                        className="bg-red-500 hover:bg-red-600 disabled:bg-gray-600 text-white p-2 rounded-lg transition-all"
-                      >
-                        <Minus className="w-5 h-5" />
-                      </button>
-                      
-                      <div className="flex-1 text-center">
-                        <p className="text-3xl font-bold text-white">{qty}</p>
-                        <p className="text-blue-200 text-sm">Selected</p>
-                      </div>
-                      
-                      <button
-                        onClick={() => updateMedicationQty(med.id, 1)}
-                        disabled={qty >= remaining}
-                        className="bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white p-2 rounded-lg transition-all"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 text-center">
-                      <p className="text-yellow-200 text-sm">Daily limit reached</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={handleConfirmDispense}
-            disabled={Object.values(selectedMedications).reduce((sum, qty) => sum + qty, 0) === 0}
-            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
-          >
-            <CheckCircle className="w-6 h-6" />
-            Continue to Confirmation
-          </button>
-        </div>
-      </div>
+              ✓ Continue to Confirmation
+            </Button>
+          </Box>
+        </Box>
+      </VStack>
     );
   };
 
   const renderUnlocked = () => (
-    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-green-500/50 text-center">
-      <Unlock className="w-24 h-24 text-green-400 mx-auto mb-4 animate-pulse" />
-      <h2 className="text-4xl font-bold text-white mb-4">CABINET UNLOCKED</h2>
-      
-      <div className="bg-green-500/20 rounded-2xl p-6 mb-6">
-        <p className="text-6xl font-bold text-white mb-2">{unlockCountdown}</p>
-        <p className="text-green-200">seconds remaining</p>
-      </div>
-      
-      <div className="bg-blue-500/20 rounded-xl p-4 mb-6">
-        <p className="text-white font-semibold mb-2">Please retrieve:</p>
-        {Object.entries(selectedMedications)
-          .filter(([_, qty]) => qty > 0)
-          .map(([medId, qty]) => {
-            const med = recognizedAstronaut.medications.find(m => m.id === medId);
-            return (
-              <p key={medId} className="text-blue-200">
-                {med.name} ({med.dosage}) × {qty}
-              </p>
-            );
-          })}
-      </div>
-      
-      <p className="text-yellow-200 text-sm">Cabinet will auto-lock when closed or timer expires</p>
-    </div>
+    <Box bg="gray.800" borderColor="green.500" borderWidth="2px" borderRadius="xl">
+      <Box textAlign="center" py={8} px={6}>
+        <Text fontSize="6xl" mb={4}>🔓</Text>
+        <Heading size="2xl" color="white" mb={4}>CABINET UNLOCKED</Heading>
+        
+        <Box bg="green.900" borderRadius="xl" p={6} mb={6}>
+          <Text fontSize="6xl" fontWeight="bold" color="white" mb={2}>{unlockCountdown}</Text>
+          <Text color="green.200">seconds remaining</Text>
+        </Box>
+        
+        <Box bg="blue.900" borderRadius="md" p={4} mb={6}>
+          <Text color="white" fontWeight="semibold" mb={2}>Please retrieve:</Text>
+          {recognizedAstronaut && Object.entries(selectedMedications)
+            .filter(([_, qty]) => qty > 0)
+            .map(([medId, qty]) => {
+              const med = recognizedAstronaut.medications.find(m => m.id === medId);
+              return med ? (
+                <Text key={medId} color="gray.300">
+                  {med.name} ({med.dosage}) × {qty}
+                </Text>
+              ) : null;
+            })}
+        </Box>
+        
+        <Text color="yellow.200" fontSize="sm">
+          Cabinet will auto-lock when closed or timer expires
+        </Text>
+      </Box>
+    </Box>
   );
 
   const renderInventory = () => {
@@ -571,164 +584,157 @@ const NASAMedicalSystem = () => {
     const lowItems = Object.entries(resupplyData).filter(([_, data]) => data.status === 'low');
     
     return (
-      <div className="space-y-6">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Package className="w-8 h-8" />
-              Inventory & Resupply Prediction
-            </h2>
-            <button
-              onClick={() => setCurrentView('home')}
-              className="text-blue-300 hover:text-blue-200"
-            >
-              <XCircle className="w-8 h-8" />
-            </button>
-          </div>
-          
-          <div className="bg-blue-500/20 rounded-xl p-4 mb-6">
-            <p className="text-white font-semibold">Next Resupply: 180 days (6 months)</p>
-            <p className="text-blue-200 text-sm">Predictions based on current usage trends</p>
-          </div>
+      <VStack gap={6}>
+        <Box bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            <Flex justify="space-between" align="center" mb={4}>
+              <Heading size="lg" color="white">📦 Inventory & Resupply Prediction</Heading>
+              <Button onClick={() => setCurrentView('home')} colorScheme="blue" variant="ghost">
+                ✕
+              </Button>
+            </Flex>
+            
+            <Box bg="blue.900" borderRadius="md" p={4} mb={6}>
+              <Text color="white" fontWeight="semibold">Next Resupply: 180 days (6 months)</Text>
+              <Text color="gray.400" fontSize="sm">
+                Predictions based on current usage trends
+              </Text>
+            </Box>
 
-          {criticalItems.length > 0 && (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4">
-              <h3 className="text-red-200 font-bold mb-2 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Critical Stock Levels ({criticalItems.length})
-              </h3>
-              {criticalItems.map(([medId, data]) => (
-                <p key={medId} className="text-red-200 text-sm">
-                  • {medId.replace('_', ' ').toUpperCase()}: {data.current} units remaining
-                </p>
-              ))}
-            </div>
-          )}
+            {criticalItems.length > 0 && (
+              <Box bg="red.900" border="2px solid" borderColor="red.500" borderRadius="md" p={4} mb={4}>
+                <Heading size="sm" color="red.500" mb={2}>⚠️ Critical Stock Levels ({criticalItems.length})</Heading>
+                {criticalItems.map(([medId, data]) => (
+                  <Text key={medId} color="red.200" fontSize="sm">
+                    • {medId.replace('_', ' ').toUpperCase()}: {data.current} units remaining
+                  </Text>
+                ))}
+              </Box>
+            )}
 
-          {lowItems.length > 0 && (
-            <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 mb-4">
-              <h3 className="text-yellow-200 font-bold mb-2 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                Low Stock Warnings ({lowItems.length})
-              </h3>
-              {lowItems.map(([medId, data]) => (
-                <p key={medId} className="text-yellow-200 text-sm">
-                  • {medId.replace('_', ' ').toUpperCase()}: {data.current} units
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
+            {lowItems.length > 0 && (
+              <Box bg="yellow.900" border="2px solid" borderColor="yellow.500" borderRadius="md" p={4} mb={4}>
+                <Heading size="sm" color="yellow.600" mb={2}>⚠️ Low Stock Warnings ({lowItems.length})</Heading>
+                {lowItems.map(([medId, data]) => (
+                  <Text key={medId} color="yellow.200" fontSize="sm">
+                    • {medId.replace('_', ' ').toUpperCase()}: {data.current} units
+                  </Text>
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Box>
 
-        <div className="space-y-4">
+        <VStack gap={4} w="100%">
           {Object.entries(resupplyData).map(([medId, data]) => (
-            <div key={medId} className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-xl font-bold text-white capitalize">
-                    {medId.replace('_', ' ')}
-                  </h3>
-                  <p className="text-blue-200 text-sm">Expires: {data.expiry}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  data.status === 'critical' ? 'bg-red-500/30 text-red-200' :
-                  data.status === 'low' ? 'bg-yellow-500/30 text-yellow-200' :
-                  'bg-green-500/30 text-green-200'
-                }`}>
-                  {data.status.toUpperCase()}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div className="bg-white/5 p-3 rounded-lg">
-                  <p className="text-blue-300 text-sm">Current Stock</p>
-                  <p className="text-2xl font-bold text-white">{data.current}</p>
-                </div>
-                <div className="bg-white/5 p-3 rounded-lg">
-                  <p className="text-blue-300 text-sm">Weekly Usage</p>
-                  <p className="text-2xl font-bold text-white">{data.usage}</p>
-                </div>
-              </div>
-              
-              <div className="bg-blue-500/20 rounded-lg p-3">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-blue-200 text-sm">Predicted Need (6 months)</p>
-                    <p className="text-xl font-bold text-white">{data.predicted} units</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-green-200 text-sm">Order Quantity</p>
-                    <p className="text-2xl font-bold text-green-400">{data.orderQty}</p>
-                  </div>
-                </div>
-                <div className="mt-2 bg-white/10 rounded-full h-2">
-                  <div 
-                    className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${Math.min((data.current / data.predicted) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
+            <Box key={medId} bg="gray.800" w="100%" borderRadius="xl" border="1px solid" borderColor="gray.700">
+              <Box p={6}>
+                <Flex justify="space-between" mb={3}>
+                  <Box>
+                    <Heading size="md" color="white" textTransform="capitalize">
+                      {medId.replace('_', ' ')}
+                    </Heading>
+                    <Text color="gray.400" fontSize="sm">
+                      Expires: {data.expiry}
+                    </Text>
+                  </Box>
+                  <Badge colorScheme={data.status === 'critical' ? 'red' : data.status === 'low' ? 'yellow' : 'green'}>
+                    {data.status.toUpperCase()}
+                  </Badge>
+                </Flex>
+                
+                <Grid templateColumns="repeat(2, 1fr)" gap={4} mb={3}>
+                  <Box bg="gray.700" p={3} borderRadius="md">
+                    <Text color="gray.400" fontSize="sm">Current Stock</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="white">{data.current}</Text>
+                  </Box>
+                  <Box bg="gray.700" p={3} borderRadius="md">
+                    <Text color="gray.400" fontSize="sm">Weekly Usage</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="white">{data.usage}</Text>
+                  </Box>
+                </Grid>
+                
+                <Box bg="blue.900" borderRadius="md" p={3}>
+                  <Flex justify="space-between">
+                    <Box>
+                      <Text color="gray.400" fontSize="sm">
+                        Predicted Need (6 months)
+                      </Text>
+                      <Text fontSize="xl" fontWeight="bold" color="white">{data.predicted} units</Text>
+                    </Box>
+                    <Box textAlign="right">
+                      <Text color="green.500" fontSize="sm">Order Quantity</Text>
+                      <Text fontSize="2xl" fontWeight="bold" color="green.500">{data.orderQty}</Text>
+                    </Box>
+                  </Flex>
+                  <Box mt={2} bg="gray.600" borderRadius="full" h="8px">
+                    <Box 
+                      bg="blue.500" 
+                      h="8px" 
+                      borderRadius="full"
+                      w={`${Math.min((data.current / data.predicted) * 100, 100)}%`}
+                      transition="width 0.3s"
+                    />
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
           ))}
-        </div>
-      </div>
+        </VStack>
+      </VStack>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 p-4">
-      <div className="max-w-4xl mx-auto">
+    <Box bg="linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3730a3 100%)" minH="100vh" p={4}>
+      <Box maxW="4xl" mx="auto">
         {/* Header */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6 border border-white/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-500 p-3 rounded-xl">
-                <Pill className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">NASA Hunch Medical System</h1>
-                <p className="text-blue-200">Automated Inventory Management</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                lockStatus === 'locked' ? 'bg-red-500/20 border border-red-500/50' :
-                lockStatus === 'unlocked' ? 'bg-green-500/20 border border-green-500/50' :
-                'bg-yellow-500/20 border border-yellow-500/50'
-              }`}>
-                {lockStatus === 'locked' ? (
-                  <>
-                    <Lock className="w-5 h-5 text-red-300" />
-                    <span className="text-red-200 font-semibold">LOCKED</span>
-                  </>
-                ) : lockStatus === 'unlocked' ? (
-                  <>
-                    <Unlock className="w-5 h-5 text-green-300" />
-                    <span className="text-green-200 font-semibold">UNLOCKED</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-5 h-5 text-yellow-300" />
-                    <span className="text-yellow-200 font-semibold">ERROR</span>
-                  </>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-white font-semibold">{new Date().toLocaleDateString()}</p>
-                <p className="text-blue-200 text-sm">{new Date().toLocaleTimeString()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Box bg="gray.800" mb={6} borderRadius="xl" border="1px solid" borderColor="gray.700">
+          <Box p={6}>
+            <Flex align="center" justify="space-between">
+              <Flex align="center" gap={4}>
+                <Box bg="blue.500" p={3} borderRadius="xl">
+                  <Text fontSize="2xl">💊</Text>
+                </Box>
+                <Box>
+                  <Heading size="lg" color="white">NASA HUNCH Medical System</Heading>
+                  <Text color="gray.400">
+                    Automated Inventory Management
+                  </Text>
+                </Box>
+              </Flex>
+              <HStack gap={4}>
+                <Box
+                  px={4}
+                  py={2}
+                  borderRadius="md"
+                  bg={lockStatus === 'locked' ? 'red.500' : lockStatus === 'unlocked' ? 'green.500' : 'yellow.500'}
+                  color="white"
+                >
+                  <HStack>
+                    <Text fontSize="lg">{lockStatus === 'locked' ? '🔒' : lockStatus === 'unlocked' ? '🔓' : '⚠️'}</Text>
+                    <Text fontWeight="semibold">{lockStatus.toUpperCase()}</Text>
+                  </HStack>
+                </Box>
+                <Box textAlign="right">
+                  <Text color="white" fontWeight="semibold">{new Date().toLocaleDateString()}</Text>
+                  <Text color="gray.400" fontSize="sm">
+                    {new Date().toLocaleTimeString()}
+                  </Text>
+                </Box>
+              </HStack>
+            </Flex>
+          </Box>
+        </Box>
 
         {/* Main Content */}
         {currentView === 'home' && renderHome()}
         {currentView === 'dispense' && renderDispense()}
         {currentView === 'unlocked' && renderUnlocked()}
         {currentView === 'inventory' && renderInventory()}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
-export default NASAMedicalSystem;
+export default App;
