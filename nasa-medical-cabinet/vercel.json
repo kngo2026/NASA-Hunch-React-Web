@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm install --legacy-peer-deps && npm run build",
+  "installCommand": "npm ci --legacy-peer-deps || npm install --legacy-peer-deps",
+  "buildCommand": "npx vite build",
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
