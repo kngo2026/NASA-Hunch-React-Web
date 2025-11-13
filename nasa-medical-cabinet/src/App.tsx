@@ -330,49 +330,17 @@ const App: React.FC = () => {
       return (
         <div style={{ background: '#1f2937', borderRadius: '16px', border: '1px solid #374151' }}>
           <div style={{ padding: '24px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>📷 Facial Recognition</h2>
-              <p style={{ color: '#9ca3af', marginBottom: '24px' }}>Position your face in the camera view</p>
-            </div>
-            
-            <div>
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                style={{ 
-                  width: '100%', 
-                  borderRadius: '16px', 
-                  marginBottom: '16px',
-                  background: '#000',
-                  minHeight: '400px',
-                  display: cameraActive ? 'block' : 'none'
-                }} 
-              />
-              
-              {!cameraActive && (
-                <div style={{ 
-                  background: '#000', 
-                  borderRadius: '16px', 
-                  padding: '80px 20px',
-                  marginBottom: '16px',
-                  textAlign: 'center'
-                }}>
-                  <div style={{ fontSize: '64px', marginBottom: '16px' }}>📷</div>
-                  <p style={{ color: '#9ca3af' }}>Camera will activate when you click "Start Camera"</p>
-                </div>
-              )}
-              
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {!cameraActive ? (
-                  <button
-                    onClick={startCamera}
-                    style={{ padding: '12px 24px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: 'pointer' }}
-                  >
-                    📷 Start Camera
-                  </button>
-                ) : (
+            {!cameraActive ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+                <div style={{ fontSize: '64px', marginBottom: '16px' }}>📷</div>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>Facial Recognition</h2>
+                <p style={{ color: '#9ca3af', marginBottom: '24px' }}>Position your face in the camera view</p>
+              </div>
+            ) : (
+              <div>
+                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', borderRadius: '16px', marginBottom: '16px' }} />
+                
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button
                     onClick={recognizeFace}
                     disabled={isRecognizing}
@@ -380,16 +348,16 @@ const App: React.FC = () => {
                   >
                     {isRecognizing ? '⏳ Recognizing...' : '👤 Recognize Face'}
                   </button>
-                )}
-                
-                <button
-                  onClick={handleCancel}
-                  style={{ padding: '12px 24px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
+                  
+                  <button
+                    onClick={handleCancel}
+                    style={{ padding: '12px 24px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       );
