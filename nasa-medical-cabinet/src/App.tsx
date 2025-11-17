@@ -281,7 +281,7 @@ const App: React.FC = () => {
           <p style={{ color: '#9ca3af', marginBottom: '24px' }}>Secure access via facial recognition</p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
-              onClick={() => { setCurrentView('dispense'); startCamera(); }}
+              onClick={() => setCurrentView('dispense')}
               style={{ padding: '12px 24px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: 'pointer' }}
             >
               👤 Access Medications
